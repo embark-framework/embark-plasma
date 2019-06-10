@@ -23,41 +23,45 @@ class EmbarkOmg extends EmbarkJSOmg {
     this.accounts = [];
 
     // gets hydrated blockchain config from embark, use it to init
-    this.events.once('config:load:blockchain', (blockchainConfig) => {
-      this.logger.info("blockchain config loaded...");
-      this.embarkUtils = new EmbarkUtils({ events: this.events, logger: this.logger, blockchainConfig });
+    // this.events.once('config:load:blockchain', (blockchainConfig) => {
+      // this.embarkUtils = new EmbarkUtils({ events: this.events, logger: this.logger, blockchainConfig });
 
-      this.init().then(() => {
-        this.addCodeToEmbarkJs();
-      });
-    });
+      // try {
+      //   this.init().then(() => {
+          this.addCodeToEmbarkJs();
+    //     });
+    //   }
+    //   catch (err) {
+    //     this.logger.error(err);
+    //   }
+    // });
 
     this.registerServiceCheck();
     this.registerConsoleCommands();
   }
 
-  async init() {
-    // init account used for root and child chains
-    try {
-      const accounts = await this.embarkUtils.accounts;
-      this.accounts = accounts;
-    } catch (e) {
-      return this.logger.error(`Error getting accounts from Embark's config: ${e}`);
-    }
-    try {
-      this.web3Path = await this.embarkUtils.web3Path;
-    }
-    catch (e) {
-      this.logger.error(`Error getting web3 from Embark: ${e}`);
-    }
-    try {
-      await super.init(this.accounts, this.web3Path);
-      this.events.emit("embark-omg:init");
-    }
-    catch (e) {
-      this.logger.error(`Error initializing EmbarkOmg: ${e}`);
-    }
-  }
+  // async init() {
+  //   // init account used for root and child chains
+  //   // try {
+  //   //   const accounts = await this.embarkUtils.accounts;
+  //   //   this.accounts = accounts.length > 1 ? accounts.slice(1) : accounts; // ignore the first account because it is our deployer account, we want the manually added account
+  //   // } catch (e) {
+  //   //   return this.logger.error(`Error getting accounts: ${e}`);
+  //   // }
+  //   // try {
+  //   //   this.web3Path = await this.embarkUtils.web3Path;
+  //   // }
+  //   // catch (e) {
+  //   //   this.logger.error(`Error getting web3 from Embark: ${e}`);
+  //   // }
+  //   // try {
+  //   // await super.init(this.accounts, this.web3Path);
+  //   // this.events.emit("embark-omg:init");
+  //   // }
+  //   // catch (e) {
+  //   //   this.logger.error(`Error initializing EmbarkOmg: ${e}`);
+  //   // }
+  // }
 
   generateSymlink(varName, location) {
     return new Promise((resolve, reject) => {
@@ -81,19 +85,20 @@ class EmbarkOmg extends EmbarkJSOmg {
   async addCodeToEmbarkJs() {
     const nodePath = dappPath('node_modules');
     const embarkjsOmgPath = require.resolve("embarkjs-omg", { paths: [nodePath] });
-    let web3SymlinkPath, embarkJsOmgSymlinkPath;
+    // let web3SymlinkPath, 
+    let embarkJsOmgSymlinkPath;
 
     await this.codeGeneratorReady();
 
     // create a symlink to web3 - this is currently the job of the web3 connector, so either this will run
     // first or the connector will overwrite it.
-    try {
-      web3SymlinkPath = await this.generateSymlink('web3', this.web3Path);
-    }
-    catch (err) {
-      this.logger.error(__('Error creating a symlink to web3'));
-      return this.logger.error(err.message || err);
-    }
+    // try {
+    //   web3SymlinkPath = await this.generateSymlink('web3', this.web3Path);
+    // }
+    // catch (err) {
+    //   this.logger.error(__('Error creating a symlink to web3'));
+    //   return this.logger.error(err.message || err);
+    // }
     try {
       embarkJsOmgSymlinkPath = await this.generateSymlink('embarkjs-omg', embarkjsOmgPath);
     }
@@ -109,6 +114,7 @@ class EmbarkOmg extends EmbarkJSOmg {
       code += `\nconst opts = {
             logger: {
               info: console.log,
+              warn: console.warn,
               error: console.error,
               trace: console.trace
             },
@@ -117,7 +123,9 @@ class EmbarkOmg extends EmbarkJSOmg {
       code += "\nEmbarkJS.onReady(() => {";
       code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
       // code += `\n  EmbarkJS.Plasma.init(${JSON.stringify(this.accounts)}, "${web3SymlinkPath}");`;
-      code += `\n  EmbarkJS.Plasma.init(${JSON.stringify(this.accounts)}, global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
+      code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
+      code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
+      code += `\n  EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3).catch((err) => console.error(err.message));`;// global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
       code += "\n});";
 
       this.embark.addCodeToEmbarkJS(code);
@@ -132,13 +140,19 @@ class EmbarkOmg extends EmbarkJSOmg {
       process: (cmd, callback) => {
         const force = cmd.endsWith("--force");
         if (this.inited && !force) {
-          return callback("The Plasma chain is already initialized. If you'd like to reinitialize the chain, use the --force option ('plasma init --force')."); // passes a message back to cockpit console
+          const message = "The Plasma chain is already initialized. If you'd like to reinitialize the chain, use the --force option ('plasma init --force').";
+          this.logger.error(message);
+          return callback(message); // passes a message back to cockpit console
         }
         this.init()
           .then((message) => {
+            this.logger.info(message);
             callback(null, message);
           })
-          .catch(callback);
+          .catch((e) => {
+            this.logger.error(e.message);
+            callback(e.message);
+          });
       }
     });
 
@@ -159,9 +173,13 @@ class EmbarkOmg extends EmbarkJSOmg {
         }
         this.deposit(matches[1])
           .then((message) => {
+            this.logger.info(message);
             callback(null, message);
           })
-          .catch(callback);
+          .catch((e) => {
+            this.logger.error(e.message);
+            callback(e.message);
+          });
       }
     });
 
@@ -182,9 +200,13 @@ class EmbarkOmg extends EmbarkJSOmg {
         }
         this.send(matches[1], matches[2])
           .then((message) => {
+            this.logger.info(message);
             callback(null, message);
           })
-          .catch(callback);
+          .catch((e) => {
+            this.logger.error(e.message);
+            callback(e.message);
+          });
       }
     });
 
@@ -197,15 +219,21 @@ class EmbarkOmg extends EmbarkJSOmg {
       usage: "plasma exit [plasma_chain_address]",
       process: (cmd, callback) => {
         if (!this.inited) {
-          return callback("The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."); // passes a message back to cockpit console
+          const message = "The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting.";
+          this.logger.error(message);
+          return callback(message); // passes a message back to cockpit console
         }
         const matches = cmd.match(exitRegex) || [];
         if (matches.length <= 1) {
-          return callback("Invalid command format, please use the format 'plasma exit [plasma_chain_address]', ie 'plasma exit 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990'");
+          const message = "Invalid command format, please use the format 'plasma exit [plasma_chain_address]', ie 'plasma exit 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990'";
+          this.logger.error(message);
+          return callback(message);
         }
         this.exit(matches[1]).then((message) => {
+          this.logger.info(message);
           callback(null, message);
         }).catch((e) => {
+          this.logger.error(e.message);
           callback(e.message);
         });
       }
@@ -216,8 +244,11 @@ class EmbarkOmg extends EmbarkJSOmg {
       matches: ["plasma status"],
       process: (cmd, callback) => {
         getWatcherStatus(this.pluginConfig.WATCHER_URL).then((status) => {
-          callback(null, JSON.stringify(status));
+          const strStatus = JSON.stringify(status);
+          this.logger.info(strStatus);
+          callback(null, strStatus);
         }).catch((e) => {
+          this.logger.error(e.message);
           callback(e.message);
         });
       }
@@ -235,28 +266,36 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     this.events.request("services:register", name, (cb) => {
 
-      waterfall([
-        (next) => {
-          if (this.inited) {
-            return next();
-          }
-          this.events.once("embark-omg:init", next);
-        },
-        (next) => {
-          // TODO: web3_clientVersion method is currently not implemented in web3.js 1.0
-          getWatcherStatus(this.pluginConfig.WATCHER_URL)
-            .then((status) => {
-              const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
-              next(null, { name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
-            })
-            .catch(next);
-        }
-      ], (err, statusObj) => {
-        if (err) {
+      // waterfall([
+      //   (next) => {
+      //     if (this.inited) {
+      //       return next();
+      //     }
+      //     this.events.once("embark-omg:init", next);
+      //   },
+      //   (next) => {
+      //     // TODO: web3_clientVersion method is currently not implemented in web3.js 1.0
+      //     getWatcherStatus(this.pluginConfig.WATCHER_URL)
+      //       .then((status) => {
+      //         const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
+      //         next(null, { name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
+      //       })
+      //       .catch(next);
+      //   }
+      // ], (err, statusObj) => {
+      //   if (err) {
+      //     return cb(err);
+      //   }
+      //   cb(statusObj);
+      // });
+      getWatcherStatus(this.pluginConfig.WATCHER_URL)
+        .then((status) => {
+          const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
+          return cb(null, { name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
+        })
+        .catch((err) => {
           return cb(err);
-        }
-        cb(statusObj);
-      });
+        });
     }, 5000, 'off');
 
     this.events.on('check:backOnline:OmiseGO', () => {

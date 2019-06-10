@@ -4,6 +4,7 @@
   "description": "OmiseGO plugin for Embark",
   "main": "dist/index.js",
   "files": [
+    "src",
     "dist"
   ],
   "scripts": {
