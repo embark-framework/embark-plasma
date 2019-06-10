@@ -291,7 +291,7 @@ class EmbarkOmg extends EmbarkJSOmg {
       getWatcherStatus(this.pluginConfig.WATCHER_URL)
         .then((status) => {
           const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
-          return cb(null, { name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
+          return cb({ name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
         })
         .catch((err) => {
           return cb(err);
