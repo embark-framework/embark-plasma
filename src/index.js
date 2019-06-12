@@ -1,9 +1,7 @@
 import EmbarkJSOmg from "embarkjs-omg";
-import EmbarkUtils from "./utils/embark";
 import { dappPath } from "embark-utils";
 import { formatDate } from "./utils";
 import { getWatcherStatus } from "./utils/plasma";
-import { waterfall } from "async";
 
 // Service check constants
 const SERVICE_CHECK_ON = 'on';
@@ -22,46 +20,10 @@ class EmbarkOmg extends EmbarkJSOmg {
     this.pluginConfig = embark.pluginConfig;
     this.accounts = [];
 
-    // gets hydrated blockchain config from embark, use it to init
-    // this.events.once('config:load:blockchain', (blockchainConfig) => {
-      // this.embarkUtils = new EmbarkUtils({ events: this.events, logger: this.logger, blockchainConfig });
-
-      // try {
-      //   this.init().then(() => {
-          this.addCodeToEmbarkJs();
-    //     });
-    //   }
-    //   catch (err) {
-    //     this.logger.error(err);
-    //   }
-    // });
-
+    this.addCodeToEmbarkJs();
     this.registerServiceCheck();
     this.registerConsoleCommands();
   }
-
-  // async init() {
-  //   // init account used for root and child chains
-  //   // try {
-  //   //   const accounts = await this.embarkUtils.accounts;
-  //   //   this.accounts = accounts.length > 1 ? accounts.slice(1) : accounts; // ignore the first account because it is our deployer account, we want the manually added account
-  //   // } catch (e) {
-  //   //   return this.logger.error(`Error getting accounts: ${e}`);
-  //   // }
-  //   // try {
-  //   //   this.web3Path = await this.embarkUtils.web3Path;
-  //   // }
-  //   // catch (e) {
-  //   //   this.logger.error(`Error getting web3 from Embark: ${e}`);
-  //   // }
-  //   // try {
-  //   // await super.init(this.accounts, this.web3Path);
-  //   // this.events.emit("embark-omg:init");
-  //   // }
-  //   // catch (e) {
-  //   //   this.logger.error(`Error initializing EmbarkOmg: ${e}`);
-  //   // }
-  // }
 
   generateSymlink(varName, location) {
     return new Promise((resolve, reject) => {
@@ -85,20 +47,9 @@ class EmbarkOmg extends EmbarkJSOmg {
   async addCodeToEmbarkJs() {
     const nodePath = dappPath('node_modules');
     const embarkjsOmgPath = require.resolve("embarkjs-omg", { paths: [nodePath] });
-    // let web3SymlinkPath, 
     let embarkJsOmgSymlinkPath;
 
     await this.codeGeneratorReady();
-
-    // create a symlink to web3 - this is currently the job of the web3 connector, so either this will run
-    // first or the connector will overwrite it.
-    // try {
-    //   web3SymlinkPath = await this.generateSymlink('web3', this.web3Path);
-    // }
-    // catch (err) {
-    //   this.logger.error(__('Error creating a symlink to web3'));
-    //   return this.logger.error(err.message || err);
-    // }
     try {
       embarkJsOmgSymlinkPath = await this.generateSymlink('embarkjs-omg', embarkjsOmgPath);
     }
@@ -183,22 +134,22 @@ class EmbarkOmg extends EmbarkJSOmg {
       }
     });
 
-    const sendRegex = /^plasma[\s]+send[\s]+(0x[0-9,a-f,A-F]{40,40})[\s]+([0-9]+)$/;
+    const sendRegex = /^plasma[\s]+transfer[\s]+(0x[0-9,a-f,A-F]{40,40})[\s]+([0-9]+)$/;
     this.embark.registerConsoleCommand({
       description: "Sends an ETH tx on the Plasma chain from the account configured in the DApp's blockchain configuration to any other account on the Plasma chain.",
       matches: (cmd) => {
         return sendRegex.test(cmd);
       },
-      usage: "plasma send [to_address] [amount]",
+      usage: "plasma transfer [to_address] [amount]",
       process: (cmd, callback) => {
         if (!this.inited) {
           return callback("The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."); // passes a message back to cockpit console
         }
         const matches = cmd.match(sendRegex) || [];
         if (matches.length <= 2) {
-          return callback("Invalid command format, please use the format 'plasma send [to_address] [amount]', ie 'plasma send 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990 555'");
+          return callback("Invalid command format, please use the format 'plasma transfer [to_address] [amount]', ie 'plasma transfer 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990 555'");
         }
-        this.send(matches[1], matches[2])
+        this.transfer(matches[1], matches[2])
           .then((message) => {
             this.logger.info(message);
             callback(null, message);
@@ -265,29 +216,6 @@ class EmbarkOmg extends EmbarkJSOmg {
     const name = "OMG Plasma Chain";
 
     this.events.request("services:register", name, (cb) => {
-
-      // waterfall([
-      //   (next) => {
-      //     if (this.inited) {
-      //       return next();
-      //     }
-      //     this.events.once("embark-omg:init", next);
-      //   },
-      //   (next) => {
-      //     // TODO: web3_clientVersion method is currently not implemented in web3.js 1.0
-      //     getWatcherStatus(this.pluginConfig.WATCHER_URL)
-      //       .then((status) => {
-      //         const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
-      //         next(null, { name: serviceStatus, status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF });
-      //       })
-      //       .catch(next);
-      //   }
-      // ], (err, statusObj) => {
-      //   if (err) {
-      //     return cb(err);
-      //   }
-      //   cb(statusObj);
-      // });
       getWatcherStatus(this.pluginConfig.WATCHER_URL)
         .then((status) => {
           const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
