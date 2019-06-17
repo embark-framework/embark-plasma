@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/emizzle/embark-omg.git"
+    "url": "git+https://github.com/embark-framework/embark-plasma.git"
   },
   "keywords": [
     "Embark",
@@ -35,9 +35,9 @@
   "author": "eric.mastro@gmail.com",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/emizzle/embark-omg/issues"
+    "url": "https://github.com/embark-framework/embark-plasma/issues"
   },
-  "homepage": "https://github.com/emizzle/embark-omg#readme",
+  "homepage": "https://github.com/embark-framework/embark-plasma#readme",
   "dependencies": {
     "@babel/plugin-proposal-optional-chaining": "7.2.0",
     "@babel/runtime-corejs2": "7.3.1",
