@@ -1,7 +1,6 @@
-import EmbarkJSOmg from "embarkjs-omg";
+import EmbarkJSPlasma from "embarkjs-omg";
 import { dappPath } from "embark-utils";
 import { formatDate } from "./utils";
-import { getWatcherStatus } from "./utils/plasma";
 
 // Service check constants
 const SERVICE_CHECK_ON = "on";
@@ -11,7 +10,7 @@ const SERVICE_CHECK_OFF = "off";
  * Plugin that allows Embark to connect to and interact with an existing Plama chain,
  * and provides an EmbarkJS.Plasma API to allow the DApp to interact with the chain.
  */
-class EmbarkOmg extends EmbarkJSOmg {
+class EmbarkPlasma extends EmbarkJSPlasma {
   constructor(embark) {
     super(embark);
 
@@ -24,21 +23,22 @@ class EmbarkOmg extends EmbarkJSOmg {
     this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
     this.registerServiceCheck();
     this.registerConsoleCommands();
+
+    this.events.request("blockchain:get", (web3) => {
+      this.events.request("blockchain:ready", () => {
+        this.init(web3, true);
+      });
+    });
   }
 
   generateSymlink(varName, location) {
     return new Promise((resolve, reject) => {
-      this.events.request(
-        "code-generator:symlink:generate",
-        location,
-        varName,
-        (err, symlinkDest) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(symlinkDest);
+      this.events.request("code-generator:symlink:generate", location, varName, (err, symlinkDest) => {
+        if (err) {
+          return reject(err);
         }
-      );
+        resolve(symlinkDest);
+      });
     });
   }
 
@@ -59,10 +59,7 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     await this.codeGeneratorReady();
     try {
-      embarkJsOmgSymlinkPath = await this.generateSymlink(
-        "embarkjs-omg",
-        embarkjsOmgPath
-      );
+      embarkJsOmgSymlinkPath = await this.generateSymlink("embarkjs-omg", embarkjsOmgPath);
     } catch (err) {
       this.logger.error(__("Error creating a symlink to embarkjs-omg"));
       return this.logger.error(err.message || err);
@@ -81,17 +78,16 @@ class EmbarkOmg extends EmbarkJSOmg {
             },
             pluginConfig: ${JSON.stringify(this.pluginConfig)}
           };`;
-      //code += "\nEmbarkJS.onReady(() => {";
+      code += "\nEmbarkJS.onReady(() => {";
       code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
       // code += `\n  EmbarkJS.Plasma.init(${JSON.stringify(this.accounts)}, "${web3SymlinkPath}");`;
       code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
       code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
-      code += `\n  EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3).catch((err) => console.error(err.message));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
-      //code += "\n});";
+      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true).catch((err) => console.error(err));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
+      code += "\n});";
 
       this.embark.addCodeToEmbarkJS(code);
-    }
-    );
+    });
   }
 
   registerConsoleCommands() {
@@ -102,8 +98,7 @@ class EmbarkOmg extends EmbarkJSOmg {
       process: (cmd, callback) => {
         const force = cmd.endsWith("--force");
         if (this.inited && !force) {
-          const message =
-            "The Plasma chain is already initialized. If you'd like to reinitialize the chain, use the --force option ('plasma init --force').";
+          const message = "The Plasma chain is already initialized. If you'd like to reinitialize the chain, use the --force option ('plasma init --force').";
           this.logger.error(message);
           return callback(message); // passes a message back to cockpit console
         }
@@ -121,23 +116,18 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     const depositRegex = /^plasma[\s]+deposit[\s]+([0-9]+)$/;
     this.embark.registerConsoleCommand({
-      description:
-        "Deposits ETH from the root chain (Rinkeby) to the Plasma chain to be used for transacting on the Plasma chain.",
+      description: "Deposits ETH (or ERC20) from the root chain to the Plasma child chain to be used for transacting on the Plasma chain.",
       matches: cmd => {
         return depositRegex.test(cmd);
       },
       usage: "plasma deposit [amount]",
       process: (cmd, callback) => {
         if (!this.inited) {
-          return callback(
-            "The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."
-          ); // passes a message back to cockpit console
+          return callback("The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."); // passes a message back to cockpit console
         }
         const matches = cmd.match(depositRegex) || [];
         if (matches.length <= 1) {
-          return callback(
-            "Invalid command format, please use the format 'plasma deposit [amount]', ie 'plasma deposit 100000'"
-          );
+          return callback("Invalid command format, please use the format 'plasma deposit [amount]', ie 'plasma deposit 100000'");
         }
         this.deposit(matches[1])
           .then(message => {
@@ -153,23 +143,18 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     const sendRegex = /^plasma[\s]+transfer[\s]+(0x[0-9,a-f,A-F]{40,40})[\s]+([0-9]+)$/;
     this.embark.registerConsoleCommand({
-      description:
-        "Sends an ETH tx on the Plasma chain from the account configured in the DApp's blockchain configuration to any other account on the Plasma chain.",
+      description: "Sends an ETH tx on the Plasma chain from the account configured in the DApp's blockchain configuration to any other account on the Plasma chain.",
       matches: cmd => {
         return sendRegex.test(cmd);
       },
       usage: "plasma transfer [to_address] [amount]",
       process: (cmd, callback) => {
         if (!this.inited) {
-          return callback(
-            "The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."
-          ); // passes a message back to cockpit console
+          return callback("The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting."); // passes a message back to cockpit console
         }
         const matches = cmd.match(sendRegex) || [];
         if (matches.length <= 2) {
-          return callback(
-            "Invalid command format, please use the format 'plasma transfer [to_address] [amount]', ie 'plasma transfer 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990 555'"
-          );
+          return callback("Invalid command format, please use the format 'plasma transfer [to_address] [amount]', ie 'plasma transfer 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990 555'");
         }
         this.transfer(matches[1], matches[2])
           .then(message => {
@@ -185,26 +170,24 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     const exitRegex = /^plasma[\s]+exit[\s]+(0x[0-9,a-f,A-F]{40,40})$/;
     this.embark.registerConsoleCommand({
-      description: "Exits the ETH from the Plasma chain to the Rinkeby chain.",
+      description: "Exits all UTXO's from the Plasma chain to the root chain.",
       matches: cmd => {
         return exitRegex.test(cmd);
       },
       usage: "plasma exit [plasma_chain_address]",
       process: (cmd, callback) => {
         if (!this.inited) {
-          const message =
-            "The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting.";
+          const message = "The Plasma chain has not been initialized. Please initialize the Plamsa chain using 'plasma init' before continuting.";
           this.logger.error(message);
           return callback(message); // passes a message back to cockpit console
         }
         const matches = cmd.match(exitRegex) || [];
         if (matches.length <= 1) {
-          const message =
-            "Invalid command format, please use the format 'plasma exit [plasma_chain_address]', ie 'plasma exit 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990'";
+          const message = "Invalid command format, please use the format 'plasma exit [plasma_chain_address]', ie 'plasma exit 0x38d5beb778b6e62d82e3ba4633e08987e6d0f990'";
           this.logger.error(message);
           return callback(message);
         }
-        this.exit(matches[1])
+        this.exitAllUtxos(matches[1])
           .then(message => {
             this.logger.info(message);
             callback(null, message);
@@ -220,11 +203,10 @@ class EmbarkOmg extends EmbarkJSOmg {
       description: "Gets the status of the Plasma chain.",
       matches: ["plasma status"],
       process: (cmd, callback) => {
-        getWatcherStatus(this.pluginConfig.WATCHER_URL)
+        this.childChain.status()
           .then(status => {
-            const strStatus = JSON.stringify(status);
-            this.logger.info(strStatus);
-            callback(null, strStatus);
+            this.logger.info(status);
+            callback(null, status);
           })
           .catch(e => {
             this.logger.error(e.message);
@@ -247,11 +229,12 @@ class EmbarkOmg extends EmbarkJSOmg {
       "services:register",
       name,
       cb => {
-        getWatcherStatus(this.pluginConfig.WATCHER_URL)
+        if (!this.inited) {
+          return cb({ name: "Loading...", status: SERVICE_CHECK_OFF });
+        }
+        this.childChain.status()
           .then(status => {
-            const serviceStatus = `Last block: ${formatDate(
-              status.last_mined_child_block_timestamp
-            )}`;
+            const serviceStatus = `Last block: ${formatDate(status.last_mined_child_block_timestamp)}`;
             return cb({
               name: serviceStatus,
               status: status ? SERVICE_CHECK_ON : SERVICE_CHECK_OFF
@@ -273,12 +256,10 @@ class EmbarkOmg extends EmbarkJSOmg {
 
     this.events.on("check:wentOffline:OmiseGO", () => {
       this.logger.error("------------------");
-      this.logger.error(
-        "Couldn't connect or lost connection to the Plasma chain..."
-      );
+      this.logger.error("Couldn't connect or lost connection to the Plasma chain...");
       this.logger.error("------------------");
     });
   }
 }
 
-export default EmbarkOmg;
+export default EmbarkPlasma;

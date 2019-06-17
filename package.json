@@ -1,7 +1,7 @@
 {
-  "name": "embark-omg",
+  "name": "embark-plasma",
   "version": "1.0.0",
-  "description": "OmiseGO plugin for Embark",
+  "description": "OmiseGO Plasma plugin for Embark",
   "main": "dist/index.js",
   "files": [
     "src",
@@ -45,7 +45,6 @@
     "@omisego/omg-js-childchain": "2.0.0-v0.2",
     "@omisego/omg-js-rootchain": "2.0.0-v0.2",
     "@omisego/omg-js-util": "2.0.0-v0.2",
-    "axios": "0.19.0",
     "date-fns": "2.0.0-alpha.27",
     "embark-utils": "^4.1.0-beta.2",
     "embarkjs-omg": "1.0.0",
