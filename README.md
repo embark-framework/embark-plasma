@@ -4,6 +4,9 @@ Embark-Plasma is a plugin for [Embark](https://github.com/embark-framework/embar
 2. Initialises EmbarkJS.Plasma in the console and makes these operations available in the DApp.
 The plugin currently only supports OMG's Samrong network and (v0.2) of the OMG SDK. The root chain is a contract on Rinkeby and the Plasma chain runs on Samrong. Chains created for development will be created in the future.
 
+> **PLEASE NOTE**
+> This is completely alpha software and should not be used in a production environment.
+
 ## Requirements
 1. Embark `^4.1.0-beta.2`
 
