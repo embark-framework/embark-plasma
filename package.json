@@ -1,6 +1,6 @@
 {
   "name": "embark-plasma",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OmiseGO Plasma plugin for Embark",
   "main": "dist/index.js",
   "files": [
@@ -16,6 +16,7 @@
     "ci": "npm run qa",
     "clean": "npm run reset",
     "package": "npm pack",
+    "prepare": "npm run build",
     "qa": "npm-run-all build test package",
     "reset": "npx rimraf .nyc_output build-test coverage dist embark-omg-*.tgz package",
     "start": "npm run watch",
