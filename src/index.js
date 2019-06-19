@@ -1,4 +1,4 @@
-import EmbarkJSPlasma from "embarkjs-omg";
+import EmbarkJSPlasma from "embarkjs-plasma";
 import { dappPath } from "embark-utils";
 import { formatDate } from "./utils";
 
@@ -52,23 +52,22 @@ class EmbarkPlasma extends EmbarkJSPlasma {
 
   async addCodeToEmbarkJs() {
     const nodePath = dappPath("node_modules");
-    const embarkjsOmgPath = require.resolve("embarkjs-omg", {
+    const embarkjsOmgPath = require.resolve("embarkjs-plasma", {
       paths: [nodePath]
     });
     let embarkJsOmgSymlinkPath;
 
     await this.codeGeneratorReady();
     try {
-      embarkJsOmgSymlinkPath = await this.generateSymlink("embarkjs-omg", embarkjsOmgPath);
+      embarkJsOmgSymlinkPath = await this.generateSymlink("embarkjs-plasma", embarkjsOmgPath);
     } catch (err) {
-      this.logger.error(__("Error creating a symlink to embarkjs-omg"));
+      this.logger.error(__("Error creating a symlink to embarkjs-plasma"));
       return this.logger.error(err.message || err);
     }
 
-    this.events.emit("runcode:register", "embarkjsOmg", require("embarkjs-omg"), () => {
+    this.events.emit("runcode:register", "embarkjsOmg", require("embarkjs-plasma"), () => {
       let code = "";
       code += `\nlet __embarkPlasma = global.embarkjsOmg || require('${embarkJsOmgSymlinkPath}').default;`;
-      //code += `\nWeb3 = global.embarkjsOmg || require('${embarkJsOmgSymlinkPath}').default;`;
       code += `\nconst opts = {
             logger: {
               info: console.log,
@@ -80,7 +79,6 @@ class EmbarkPlasma extends EmbarkJSPlasma {
           };`;
       code += "\nEmbarkJS.onReady(() => {";
       code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
-      // code += `\n  EmbarkJS.Plasma.init(${JSON.stringify(this.accounts)}, "${web3SymlinkPath}");`;
       code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
       code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
       code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true).catch((err) => console.error(err));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
