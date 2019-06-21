@@ -35,34 +35,48 @@ An example plugin configuration can be found below. Note the contract address is
 3. The DApp must use Metamask. The accounts configured in the blockchain config cannot be used in the DApp. This is a limitation of Embark itself, and will hopefully be updated soon.
 
 ## Available console commands
-Embark console commands can be executed in an embark console (by running `embark console`) or in Cockpit's builtin console on the Dashboard. These commands require that Embark is set in testnet environment, on Rinkeby, and that an account with funds on Rinkeby is added to the Blockchain's account configuration (ie via mnemonic). More information about to do this can be found in [Embark's documentation](https://embark.status.im/docs/blockchain_configuration.html#Testnet-configuration).
+Embark console commands can be executed in an embark console (by running `embark console`) or in Cockpit's builtin console on the Dashboard. These commands require that Embark is set in testnet environment, on Rinkeby, and that an account with funds on Rinkeby is added to the contract account configuration (ie via mnemonic). More information about to do this can be found in [Embark's documentation](https://embark.status.im/docs/contracts_deployment.html).
 
 _The first account configured that is not the coinbase will be used as the main account in the child chain._
 
-An example configuration in `config/blockchain.js` would look like:
+An example configuration in `config/contracts.js` would look like:
 ```
 module.exports = {
   //...
   rinkeby: {
-    networkType: "rinkeby",
-    syncMode: "light",
-    networkId: 4,
-    accounts: [
-      {
-        nodeAccounts: true,
-        password: "config/testnet/password"
-      },
-      {
-        mnemonic: "MNEMONIC GOES HERE",
-        addressIndex: "0", // Optional. The index to start getting the address
-        numAddresses: "1", // Optional. The number of addresses to get
-        hdpath: "m/44'/60'/0'/0/", // Optional. HD derivation path
+    deployment: {
+      host: "rinkeby.infura.io/v3/INFURA_API_KEY",
+      port: false,
+      type: "rpc",
+      protocol: "https",
+      accounts: [
+        {
+          mnemonic: "MNEMONIC_HERE",
+          addressIndex: "0", // Optional. The index to start getting the address
+          numAddresses: "2", // Optional. The number of addresses to get
+          hdpath: "m/44'/60'/0'/0/" // Optional. HD derivation path
+        }
+      ]
+    },
+    contracts: {
+      PlasmaCore: {
+        address: "0x740ecec4c0ee99c285945de8b44e9f5bfb71eea7",
+        abiDefinition: require("@omisego/omg-js-rootchain/src/contracts/RootChain.json").abi
       }
+    },
+    dappConnection: [
+      "$WEB3",  // uses pre existing web3 object if available (e.g in Mist)
+      "https://rinkeby.infura.io/v3/INFURA_API_KEY"
     ]
-  }
+  },
   //...
 }
 ```
+The above configuration sets up an environment called `rinkeby`. To run Embark using the `rinkeby` environment, you would run:
+```
+embark run rinkeby
+```
+> NOTE: You can still run Embark in the development environment, ie `embark run`, however the console commands will not work correctly. The DApp will still have access to `EmbarkJS.Plasma` and will still function correctly.
 
 ### Init
 Initialises the root and child chains and sets up web3. This is already done for us in the context of Embark, however we can re-initialise the plugin using the `--force` param if needed.

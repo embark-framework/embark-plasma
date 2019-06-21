@@ -20,7 +20,8 @@ class EmbarkPlasma extends EmbarkJSPlasma {
     this.accounts = [];
 
     // gets hydrated blockchain config from embark, use it to init
-    this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
+    // this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
+    this.addCodeToEmbarkJs();
     this.registerServiceCheck();
     this.registerConsoleCommands();
 
