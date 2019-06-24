@@ -1,6 +1,6 @@
 import EmbarkJSPlasma from "embarkjs-plasma";
-import { dappPath } from "embark-utils";
-import { formatDate } from "./utils";
+import {dappPath} from "embark-utils";
+import {formatDate} from "./utils";
 
 // Service check constants
 const SERVICE_CHECK_ON = "on";
@@ -17,7 +17,6 @@ class EmbarkPlasma extends EmbarkJSPlasma {
     this.embark = embark;
     this.events = embark.events;
     this.pluginConfig = embark.pluginConfig;
-    this.accounts = [];
 
     // gets hydrated blockchain config from embark, use it to init
     // this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
@@ -27,7 +26,9 @@ class EmbarkPlasma extends EmbarkJSPlasma {
 
     this.events.request("blockchain:get", (web3) => {
       this.events.request("blockchain:ready", () => {
-        this.init(web3, true);
+        this.events.request("blockchain:provider:contract:accounts:getAll", (_err, accounts) => {
+          this.init(web3, true, accounts);
+        });
       });
     });
   }
@@ -82,7 +83,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
       code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
       code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
       code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
-      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true).catch((err) => console.error(err));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
+      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true, ${JSON.stringify(this.accounts)}).catch((err) => console.error(err));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
       code += "\n});";
 
       this.embark.addCodeToEmbarkJS(code);
@@ -229,7 +230,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
       name,
       cb => {
         if (!this.inited) {
-          return cb({ name: "Loading...", status: SERVICE_CHECK_OFF });
+          return cb({name: "Loading...", status: SERVICE_CHECK_OFF});
         }
         this.childChain.status()
           .then(status => {
