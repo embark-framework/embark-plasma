@@ -32,14 +32,13 @@ An example plugin configuration can be found below. Note the contract address is
 ## Current limitations and known issues
 1. The console commands can only be run when Embark is run in the Rinkeby environment, ie `embark run rinkeby` and the `rinkeby` enviroinment is correctly configured as described below. 
 2. This plugin can also be run in development configuration `embark run`, however the console commands will not work correctly, as they will be interfacing with a contract address on the local blockchain and not rinkeby.
-3. The DApp must use Metamask. The accounts configured in the blockchain config cannot be used in the DApp. This is a limitation of Embark itself, and will hopefully be updated soon.
 
-## Available console commands
-Embark console commands can be executed in an embark console (by running `embark console`) or in Cockpit's builtin console on the Dashboard. These commands require that Embark is set in testnet environment, on Rinkeby, and that an account with funds on Rinkeby is added to the contract account configuration (ie via mnemonic). More information about to do this can be found in [Embark's documentation](https://embark.status.im/docs/contracts_deployment.html).
+## Environment setup
+These commands require that Embark is set in testnet environment, on Rinkeby, and that an account with funds on Rinkeby is added to the contract account configuration (ie via mnemonic). General information about configuring a testnet environment can be found in [Embark's documentation](https://embark.status.im/docs/contracts_deployment.html).
 
 _The first account configured that is not the coinbase will be used as the main account in the child chain._
 
-An example configuration in `config/contracts.js` would look like:
+We recommend using a testnet configuration in `config/contracts.js` like:
 ```
 module.exports = {
   //...
@@ -76,7 +75,10 @@ The above configuration sets up an environment called `rinkeby`. To run Embark u
 ```
 embark run rinkeby
 ```
-> NOTE: You can still run Embark in the development environment, ie `embark run`, however the console commands will not work correctly. The DApp will still have access to `EmbarkJS.Plasma` and will still function correctly.
+> NOTE: You can still run Embark in the development environment with this plugin, ie `embark run`, however the console commands will not work correctly. The DApp will still have access to `EmbarkJS.Plasma` and will still function correctly.
+
+## Available console commands
+Embark console commands can be executed in an embark console (by running `embark console rinkeby`) or in Cockpit's builtin console on the Dashboard (available after running `embark run rinkeby`). The available console commands are listed below.
 
 ### Init
 Initialises the root and child chains and sets up web3. This is already done for us in the context of Embark, however we can re-initialise the plugin using the `--force` param if needed.
