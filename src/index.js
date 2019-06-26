@@ -20,14 +20,16 @@ class EmbarkPlasma extends EmbarkJSPlasma {
 
     // gets hydrated blockchain config from embark, use it to init
     // this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
-    this.addCodeToEmbarkJs();
+    
     this.registerServiceCheck();
     this.registerConsoleCommands();
 
     this.events.request("blockchain:get", (web3) => {
       this.events.request("blockchain:ready", () => {
         this.events.request("blockchain:provider:contract:accounts:getAll", (_err, accounts) => {
-          this.init(web3, true, accounts);
+          this.accounts = accounts;
+          this.addCodeToEmbarkJs();
+          this.init(web3, true);
         });
       });
     });
@@ -77,13 +79,14 @@ class EmbarkPlasma extends EmbarkJSPlasma {
               error: console.error,
               trace: console.trace
             },
-            pluginConfig: ${JSON.stringify(this.pluginConfig)}
+            pluginConfig: ${JSON.stringify(this.pluginConfig)},
+            accounts: ${JSON.stringify(this.accounts)}
           };`;
       code += "\nEmbarkJS.onReady(() => {";
       code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
       code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
       code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
-      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true, ${JSON.stringify(this.accounts)}).catch((err) => console.error(err));`; // global.embarkjsOmg ? "${web3SymlinkPath}" : null);`; // pass the symlink path ONLY when we are in the node (VM) context
+      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true).catch((err) => console.error(err));`;
       code += "\n});";
 
       this.embark.addCodeToEmbarkJS(code);
