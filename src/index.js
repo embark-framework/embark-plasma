@@ -6,92 +6,131 @@ import {formatDate} from "./utils";
 const SERVICE_CHECK_ON = "on";
 const SERVICE_CHECK_OFF = "off";
 
+const STACK_NAME = "Plasma";
+const MODULE_NAME = "OMG";
+const PACKAGE_NAME = "embarkjs-plasma";
+
 /**
  * Plugin that allows Embark to connect to and interact with an existing Plama chain,
  * and provides an EmbarkJS.Plasma API to allow the DApp to interact with the chain.
  */
 class EmbarkPlasma extends EmbarkJSPlasma {
   constructor(embark) {
-    super(embark);
+    super(embark, this.web3);
 
     this.embark = embark;
     this.events = embark.events;
     this.pluginConfig = embark.pluginConfig;
 
-    // gets hydrated blockchain config from embark, use it to init
-    // this.events.once("config:load:contracts", this.addCodeToEmbarkJs.bind(this));
-    
+    embark.registerActionForEvent("pipeline:generateAll:before", this.addArtifactFile.bind(this));
+
+    this.setupEmbarkJS();
     this.registerServiceCheck();
     this.registerConsoleCommands();
 
-    this.events.request("blockchain:get", (web3) => {
-      this.events.request("blockchain:ready", () => {
-        this.events.request("blockchain:provider:contract:accounts:getAll", (_err, accounts) => {
-          this.accounts = accounts;
-          this.addCodeToEmbarkJs();
-          this.init(web3, true);
-        });
-      });
-    });
+    // this.events.request("blockchain:get", (web3) => {
+    //   this.events.request("blockchain:ready", () => {
+    //     this.events.request("blockchain:provider:contract:accounts:getAll", (_err, accounts) => {
+    //       this.accounts = accounts;
+    // this.addCodeToEmbarkJs();
+    // this.init(web3, true, accounts);
+    //     });
+    //   });
+    // });
   }
 
-  generateSymlink(varName, location) {
-    return new Promise((resolve, reject) => {
-      this.events.request("code-generator:symlink:generate", location, varName, (err, symlinkDest) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve(symlinkDest);
-      });
-    });
+  get web3() {
+    return (async () => {
+      if (!this._web3) {
+        const provider = await this.events.request2("blockchain:client:provider", "ethereum");
+        this._web3 = new Web3(provider);
+      }
+      return this._web3;
+    })();
   }
 
-  codeGeneratorReady() {
-    return new Promise((resolve, _reject) => {
-      this.events.request("code-generator:ready", () => {
-        resolve();
-      });
-    });
+  async setupEmbarkJS() {
+    this.events.request("embarkjs:plugin:register", STACK_NAME, MODULE_NAME, PACKAGE_NAME);
+    const options = {
+      config: this.pluginConfig,
+      logger: {
+        info: console.log,
+        warn: console.warn,
+        error: console.error,
+        trace: console.trace
+      }
+    };
+    await this.events.request2("embarkjs:console:regsiter:custom", STACK_NAME, MODULE_NAME, PACKAGE_NAME, options);
+    // this.events.on("storage:started", () => {
+    //   let config = this.embark.config.storageConfig.dappConnection || [];
+    // });
   }
 
-  async addCodeToEmbarkJs() {
-    const nodePath = dappPath("node_modules");
-    const embarkjsOmgPath = require.resolve("embarkjs-plasma", {
-      paths: [nodePath]
-    });
-    let embarkJsOmgSymlinkPath;
-
-    await this.codeGeneratorReady();
-    try {
-      embarkJsOmgSymlinkPath = await this.generateSymlink("embarkjs-plasma", embarkjsOmgPath);
-    } catch (err) {
-      this.logger.error(__("Error creating a symlink to embarkjs-plasma"));
-      return this.logger.error(err.message || err);
-    }
-
-    this.events.emit("runcode:register", "embarkjsOmg", require("embarkjs-plasma"), () => {
-      let code = "";
-      code += `\nlet __embarkPlasma = global.embarkjsOmg || require('${embarkJsOmgSymlinkPath}').default;`;
-      code += `\nconst opts = {
-            logger: {
-              info: console.log,
-              warn: console.warn,
-              error: console.error,
-              trace: console.trace
-            },
-            pluginConfig: ${JSON.stringify(this.pluginConfig)},
-            accounts: ${JSON.stringify(this.accounts)}
-          };`;
-      code += "\nEmbarkJS.onReady(() => {";
-      code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
-      code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
-      code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
-      code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true).catch((err) => console.error(err));`;
-      code += "\n});";
-
-      this.embark.addCodeToEmbarkJS(code);
-    });
+  addArtifactFile(_params, cb) {
+    this.events.request("pipeline:register", {
+      path: [this.embarkConfig.generationDir, 'config'],
+      file: 'Plasma.json',
+      format: 'json',
+      content: this.pluginConfig;
+    }, cb);
   }
+
+  // generateSymlink(varName, location) {
+  //   return new Promise((resolve, reject) => {
+  //     this.events.request("code-generator:symlink:generate", location, varName, (err, symlinkDest) => {
+  //       if (err) {
+  //         return reject(err);
+  //       }
+  //       resolve(symlinkDest);
+  //     });
+  //   });
+  // }
+
+  // codeGeneratorReady() {
+  //   return new Promise((resolve, _reject) => {
+  //     this.events.request("code-generator:ready", () => {
+  //       resolve();
+  //     });
+  //   });
+  // }
+
+  // async addCodeToEmbarkJs() {
+  //   const nodePath = dappPath("node_modules");
+  //   const embarkjsOmgPath = require.resolve("embarkjs-plasma", {
+  //     paths: [nodePath]
+  //   });
+  //   let embarkJsOmgSymlinkPath;
+
+  //   await this.codeGeneratorReady();
+  //   try {
+  //     embarkJsOmgSymlinkPath = await this.generateSymlink("embarkjs-plasma", embarkjsOmgPath);
+  //   } catch (err) {
+  //     this.logger.error(__("Error creating a symlink to embarkjs-plasma"));
+  //     return this.logger.error(err.message || err);
+  //   }
+
+  //   this.events.emit("runcode:register", "embarkjsOmg", require("embarkjs-plasma"), () => {
+  //     let code = "";
+  //     code += `\nlet __embarkPlasma = global.embarkjsOmg || require('${embarkJsOmgSymlinkPath}').default;`;
+  //     code += `\nconst opts = {
+  //           logger: {
+  //             info: console.log,
+  //             warn: console.warn,
+  //             error: console.error,
+  //             trace: console.trace
+  //           },
+  //           pluginConfig: ${JSON.stringify(this.pluginConfig)}
+  //         };`;
+  //     code += "\nEmbarkJS.onReady(() => {";
+  //     code += "\n  EmbarkJS.Plasma = new __embarkPlasma(opts);";
+  //     code += `\n  const embarkJsWeb3Provider = EmbarkJS.Blockchain.Providers["web3"]`;
+  //     code += `\n  if (!embarkJsWeb3Provider) { throw new Error("web3 cannot be found. Please ensure you have the 'embarkjs-connector-web3' plugin installed in your DApp."); }`;
+  //     code += `\n  if (global.embarkjsOmg) EmbarkJS.Plasma.init(embarkJsWeb3Provider.web3, true, ${JSON.stringify(this.accounts)}).catch((err) => console.error(err));`;
+  //     code += "\n});";
+
+  //     this.embark.addCodeToEmbarkJS(code);
+  //   });
+  // }
 
   registerConsoleCommands() {
     this.embark.registerConsoleCommand({
