@@ -16,7 +16,7 @@ const PACKAGE_NAME = "embarkjs-plasma";
  */
 class EmbarkPlasma extends EmbarkJSPlasma {
   constructor(embark) {
-    super(embark, this.web3);
+    super(embark);
 
     this.embark = embark;
     this.events = embark.events;
@@ -27,6 +27,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
     this.setupEmbarkJS();
     this.registerServiceCheck();
     this.registerConsoleCommands();
+    this.init();
 
     // this.events.request("blockchain:get", (web3) => {
     //   this.events.request("blockchain:ready", () => {
@@ -49,16 +50,15 @@ class EmbarkPlasma extends EmbarkJSPlasma {
     })();
   }
 
+  async init() {
+    const web3 = await this.web3;
+    super.init(web3);
+  }
+
   async setupEmbarkJS() {
-    this.events.request("embarkjs:plugin:register", STACK_NAME, MODULE_NAME, PACKAGE_NAME);
+    await this.events.request2("embarkjs:plugin:register", STACK_NAME, MODULE_NAME, PACKAGE_NAME);
     const options = {
-      config: this.pluginConfig,
-      logger: {
-        info: console.log,
-        warn: console.warn,
-        error: console.error,
-        trace: console.trace
-      }
+      config: this.pluginConfig
     };
     await this.events.request2("embarkjs:console:regsiter:custom", STACK_NAME, MODULE_NAME, PACKAGE_NAME, options);
     // this.events.on("storage:started", () => {
@@ -71,7 +71,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
       path: [this.embarkConfig.generationDir, 'config'],
       file: 'Plasma.json',
       format: 'json',
-      content: this.pluginConfig;
+      content: this.pluginConfig
     }, cb);
   }
 
