@@ -1,6 +1,7 @@
 import EmbarkJSPlasma from "embarkjs-plasma";
 import {dappPath} from "embark-utils";
 import {formatDate} from "./utils";
+import Web3 from "web3";
 
 // Service check constants
 const SERVICE_CHECK_ON = "on";
@@ -40,7 +41,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
     // });
   }
 
-  get web3() {
+  get web3Instance() {
     return (async () => {
       if (!this._web3) {
         const provider = await this.events.request2("blockchain:client:provider", "ethereum");
@@ -51,12 +52,12 @@ class EmbarkPlasma extends EmbarkJSPlasma {
   }
 
   async init() {
-    const web3 = await this.web3;
+    const web3 = await this.web3Instance;
     super.init(web3);
   }
 
   async setupEmbarkJS() {
-    await this.events.request2("embarkjs:plugin:register", STACK_NAME, MODULE_NAME, PACKAGE_NAME);
+    await this.events.request2("embarkjs:plugin:register:custom", STACK_NAME, MODULE_NAME, PACKAGE_NAME);
     const options = {
       config: this.pluginConfig
     };
@@ -68,7 +69,7 @@ class EmbarkPlasma extends EmbarkJSPlasma {
 
   addArtifactFile(_params, cb) {
     this.events.request("pipeline:register", {
-      path: [this.embarkConfig.generationDir, 'config'],
+      path: [this.embark.config.embarkConfig.generationDir, 'config'],
       file: 'Plasma.json',
       format: 'json',
       content: this.pluginConfig
