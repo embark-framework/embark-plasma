@@ -50,7 +50,7 @@
     "embark-utils": "^4.1.0-beta.2",
     "embarkjs-plasma": "1.0.0",
     "ethers": "4.0.28",
-    "web3": "1.2.1"
+    "web3": "1.0.0-beta.55"
   },
   "devDependencies": {
     "@babel/cli": "7.2.3",
