@@ -8,10 +8,11 @@ The plugin currently only supports OMG's Samrong network and (v0.2) of the OMG S
 > This is completely alpha software and should not be used in a production environment.
 
 ## Requirements
-1. Embark `^4.1.0-beta.2`
+1. Embark `^4.1.1`
 
 ## Plugin config
 The Embark-Plasma plugin needs to be configured in your DApp's `embark.json` with four available properties.
+`ROOTCHAIN_ACCOUNT`: (optional) An account configured in the DApp's blockchain config. Must either be an unlocked node account, or an account in the `accounts` array (ie specified via a mnemonic). By default, the "from" account for Plasma operations will be either the selected MetaMask account OR the last account specified in the blockchain config accounts. This setting is useful in specifying which account in the accounts array will be used as the current Plasma account, if the last account is not desired.
 `WATCHER_URL`: The URL of the child chain watcher.
 `CHILDCHAIN_URL`: The child chain endpoint.
 `CHILDCHAIN_EXPLORER_URL`: Block explorer URL for the child chain.
